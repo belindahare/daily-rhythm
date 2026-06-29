@@ -3,9 +3,11 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Rhythm">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f9f7f2">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
 <title>Daily Rhythm</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -988,13 +990,30 @@ const MISSIONS = [
   { text: 'Empty and reset your kitchen dish rack.', sub: 'Put away, wipe the tray, start fresh.' },
 ];
 
+// Single guarded write path. localStorage.setItem throws on quota-exceeded and
+// in iOS private mode; without this, a failed save (e.g. a delete that didn't
+// persist) is lost silently and the item reappears on reload.
+function safeSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn('Storage write failed for', key, e);
+    if (typeof showToast === 'function') showToast('Couldn\'t save — storage may be full');
+    return false;
+  }
+}
+
 function loadTasks(key, defaults) {
   const saved = localStorage.getItem('dr_tasks_' + key);
-  if (saved) { try { return JSON.parse(saved); } catch(e) {} }
+  if (saved) {
+    try { return JSON.parse(saved); }
+    catch (e) { console.warn('Corrupt task data for', key, '— using defaults', e); }
+  }
   return JSON.parse(JSON.stringify(defaults));
 }
 
-function saveTasks(key, data) { localStorage.setItem('dr_tasks_' + key, JSON.stringify(data)); }
+function saveTasks(key, data) { safeSet('dr_tasks_' + key, JSON.stringify(data)); }
 
 let morningTasks = loadTasks('morning', DEFAULT_MORNING);
 let eveningTasks = loadTasks('evening', DEFAULT_EVENING);
@@ -1008,7 +1027,7 @@ const dateKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(
 const storageKey = 'dailyRhythm_' + dateKey;
 let state = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-function saveState() { localStorage.setItem(storageKey, JSON.stringify(state)); }
+function saveState() { safeSet(storageKey, JSON.stringify(state)); }
 
 document.addEventListener('click', (e) => {
   if (!e.target.classList.contains('delete-btn')) return;
@@ -1058,7 +1077,7 @@ function getDailyZoneTasks(zoneIdx) {
   }
   const shuffled = [...zone.tasks].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, 2);
-  localStorage.setItem(cacheKey, JSON.stringify(selected.map(t => t.id)));
+  safeSet(cacheKey, JSON.stringify(selected.map(t => t.id)));
   return selected;
 }
 
