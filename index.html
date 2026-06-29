@@ -1108,9 +1108,14 @@ function init() {
   renderEvening();
   renderEditMode();
 
+  // Default tab by Eastern Time:
+  //   Morning  3:00am – 5:29pm ET
+  //   Evening  5:30pm – 2:59am ET
   const etDate = new Date(today.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const etH = etDate.getHours(), etM = etDate.getMinutes();
-  const defaultEvening = etH < 3 || etH > 17 || (etH === 17 && etM >= 30);
+  const etMinutes = etDate.getHours() * 60 + etDate.getMinutes();
+  const MORNING_START = 3 * 60;        // 3:00am
+  const EVENING_START = 17 * 60 + 30;  // 5:30pm
+  const defaultEvening = etMinutes < MORNING_START || etMinutes >= EVENING_START;
   if (defaultEvening) {
     const tabs = document.querySelectorAll('.tab');
     showPanel('evening', tabs[1]);
